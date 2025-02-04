@@ -1,6 +1,8 @@
 <!DOCTYPE html>
 <html>
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>抽奖系统</title>
     <style>
         body {
@@ -103,22 +105,43 @@
             animation: clickEffect 0.3s ease;
         }
         .winner {
-            animation: winAnimation 1s forwards;
+            animation: winAnimation 0.8s cubic-bezier(0.4, 0, 0.2, 1) forwards;
             z-index: 10;
             background: rgba(255, 215, 0, 0.3);
+            box-shadow: 0 0 20px rgba(255, 215, 0, 0.5);
+            width: fit-content;
+            margin: 0 auto;
         }
         .loser {
-            animation: loseAnimation 1s forwards;
+            animation: loseAnimation 0.5s ease-out forwards;
         }
         @keyframes winAnimation {
-            to {
-                transform: scale(2);
-                opacity: 1;
+            0% {
+                transform: scale(1);
+                position: relative;
+            }
+            50% {
+                transform: scale(0.9);
+                position: fixed;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%) scale(0.9);
+            }
+            100% {
+                position: fixed;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%) scale(1.2);
+                z-index: 1000;
             }
         }
         @keyframes loseAnimation {
-            to {
-                transform: scale(0);
+            0% {
+                transform: scale(1);
+                opacity: 1;
+            }
+            100% {
+                transform: scale(0.5);
                 opacity: 0;
             }
         }
@@ -127,6 +150,105 @@
             margin-top: 20px;
             color: gold;
             text-shadow: 0 0 10px rgba(255,215,0,0.5);
+            opacity: 0;
+            animation: fadeIn 0.3s ease-in forwards;
+            animation-delay: 0.5s;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        @media screen and (max-width: 768px) {
+            body {
+                padding: 10px;
+            }
+            
+            h1 {
+                font-size: 2em;
+                margin-bottom: 20px;
+            }
+            
+            #setup {
+                padding: 20px;
+                width: 90%;
+                max-width: 400px;
+            }
+            
+            input[type="text"] {
+                width: 90%;
+                padding: 12px;
+                font-size: 14px;
+            }
+            
+            #gifts {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 10px;
+                margin: 15px auto;
+            }
+            
+            .gift {
+                padding: 15px 10px;
+                font-size: 14px;
+                min-height: 80px;
+                display: flex;
+                flex-direction: column;
+                justify-content: center;
+                align-items: center;
+            }
+            
+            #timer {
+                font-size: 40px;
+            }
+            
+            button {
+                padding: 12px 24px;
+                font-size: 16px;
+            }
+            
+            .winner {
+                font-size: 16px;
+                padding: 20px;
+                min-width: 200px;
+                max-width: 80vw;
+            }
+            
+            @keyframes winAnimation {
+                0% {
+                    transform: scale(1);
+                    position: relative;
+                }
+                50% {
+                    transform: scale(0.9);
+                    position: fixed;
+                    top: 50%;
+                    left: 50%;
+                    transform: translate(-50%, -50%) scale(0.9);
+                }
+                100% {
+                    position: fixed;
+                    top: 50%;
+                    left: 50%;
+                    transform: translate(-50%, -50%) scale(1);
+                    z-index: 1000;
+                }
+            }
+            
+            .result-text {
+                font-size: 18px;
+                margin-top: 15px;
+                line-height: 1.4;
+            }
+        }
+        
+        /* 禁用长按选择文本 */
+        * {
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            -khtml-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
         }
     </style>
 </head>
@@ -195,7 +317,14 @@
                 let div = document.createElement('div');
                 div.className = 'gift';
                 div.innerHTML = `<strong>${gift}</strong><br><span>点击次数: <b>0</b></span>`;
-                div.onclick = () => incrementClicks(gift, div);
+                
+                // 添加触摸事件支持
+                div.addEventListener('touchstart', (e) => {
+                    e.preventDefault();
+                    incrementClicks(gift, div);
+                }, { passive: false });
+                
+                div.addEventListener('click', () => incrementClicks(gift, div));
                 giftsDiv.appendChild(div);
             });
 
@@ -219,7 +348,13 @@
             }, 1000);
         }
 
+        // 修改incrementClicks函数，防止重复触发
+        let lastTapTime = 0;
         function incrementClicks(gift, div) {
+            const now = Date.now();
+            if (now - lastTapTime < 100) return; // 防止快速重复触发
+            lastTapTime = now;
+            
             clicks[gift] += 0.1;
             div.querySelector('b').innerText = Math.floor((clicks[gift] - 1) * 10);
             div.classList.add('clicked');
@@ -231,6 +366,7 @@
             isDrawing = true;
 
             document.getElementById('title').style.display = 'none';
+            document.getElementById('gifts').style.overflow = 'hidden'; // 防止滚动
 
             let totalWeight = gifts.length;
             let random = Math.random() * totalWeight;
@@ -241,24 +377,31 @@
             giftElements.forEach(el => {
                 if(el.querySelector('strong').textContent === winningGift) {
                     el.classList.add('winner');
-                    el.innerHTML += `<div class="result-text">🎉 恭喜你获得: ${winningGift} 🎉</div>`;
+                    el.innerHTML = `
+                        <strong style="display: block; margin-bottom: 10px">${winningGift}</strong>
+                        <div class="result-text">🎉 恭喜你获得: ${winningGift} 🎉</div>
+                    `;
                 } else {
                     el.classList.add('loser');
                 }
             });
 
-                        setTimeout(() => {
-                            if(confirm('是否要重新开始？')) {
+            // 禁用页面滚动
+            document.body.style.overflow = 'hidden';
+
+            setTimeout(() => {
+                if(confirm('是否要重新开始？')) {
                     document.getElementById('title').style.display = 'block';
                     document.getElementById('setup').style.display = 'block';
                     document.getElementById('game').style.display = 'none';
                     document.getElementById('draw').style.display = 'block';
                     document.getElementById('draw').disabled = true;
                     document.getElementById('timer').style.display = 'block';
-                                isDrawing = false;
+                    document.body.style.overflow = ''; // 恢复滚动
+                    isDrawing = false;
                 }
             }, 3000);
-            }
+        }
     </script>
 </body>
 </html>
